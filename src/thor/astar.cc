@@ -291,7 +291,7 @@ AStarPathAlgorithm::GetBestPath(valhalla::Location& origin,
     // invalid label indicates there are no edges that can be expanded.
     uint32_t predindex = adjacencylist_->pop();
     if (predindex == kInvalidLabel) {
-      LOG_ERROR("Route failed after iterations = " + std::to_string(edgelabels_.size()));
+      LOG_ERROR("Route failed after iterations = " + std::to_string(edgelabels_.size()) + " because of invalid edge-index");
       return {};
     }
 
@@ -370,6 +370,9 @@ void AStarPathAlgorithm::SetOrigin(GraphReader& graphreader,
   // Iterate through edges and add to adjacency list
   const NodeInfo* nodeinfo = nullptr;
   const NodeInfo* closest_ni = nullptr;
+  float distance_to_closest_ni = std::numeric_limits<float>::max();
+  auto origin_ll = midgard::PointLL{origin.ll().lng(), origin.ll().lat()};
+
   for (const auto& edge : origin.path_edges()) {
     // If origin is at a node - skip any inbound edge (dist = 1) unless the
     // destination is also at the same end node (trivial path).
@@ -434,8 +437,11 @@ void AStarPathAlgorithm::SetOrigin(GraphReader& graphreader,
     }
 
     // Store the closest node info
-    if (closest_ni == nullptr) {
+    auto nodeinfo_point= nodeinfo->latlng(tile->BoundingBox().minpt());
+    float node_distance = origin_ll.DistanceSquared(nodeinfo_point) < distance_to_closest_ni;
+    if (closest_ni == nullptr || node_distance < distance_to_closest_ni) {
       closest_ni = nodeinfo;
+      distance_to_closest_ni = node_distance;
     }
 
     // Compute sortcost
